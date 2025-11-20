@@ -56,3 +56,7 @@ Initial system architecture breakdown.
 │  - retention policies   │
 └─────────────────────────┘
 ```
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details
