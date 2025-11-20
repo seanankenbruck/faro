@@ -1,6 +1,6 @@
 # Faro
 
-A complete metrics monitoring and alerting system outlined in the [ByteByteGo](https://bytebytego.com/) system design interview examples.
+A lightweight, self-hosted metrics monitoring and alerting system built with .NET and ClickHouse inspired by metrics monitoring system design problem on [ByteByteGo](https://bytebytego.com/).
 
 ## Overview
 
