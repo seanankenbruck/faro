@@ -1,6 +1,6 @@
 # Faro
 
-A lightweight, self-hosted metrics monitoring and alerting system built with .NET and ClickHouse inspired by metrics monitoring system design problem on [ByteByteGo](https://bytebytego.com/).
+A lightweight, self-hosted metrics monitoring and alerting system built with .NET and ClickHouse inspired by a system design problem on [ByteByteGo](https://bytebytego.com/).
 
 ## Overview
 
