@@ -1,0 +1,6 @@
+@Faro.Collector_HostAddress = http://localhost:5265
+
+GET {{Faro.Collector_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
