@@ -22,7 +22,7 @@ public class HealthController: ControllerBase
         var isHealthy = await _repository.HealthCheckAsync();
         if (isHealthy)
         {
-            return Ok(new { status = "health", timestamp = DateTime.UtcNow });
+            return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
         }
 
         return StatusCode(503, new { status = "unhealthy", timestamp = DateTime.UtcNow });
