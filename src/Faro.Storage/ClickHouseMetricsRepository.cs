@@ -63,6 +63,8 @@ public class ClickHouseMetricsRepository: IMetricsRepository
                     MaxDegreeOfParallelism = 4
                 };
 
+                await bulkCopy.InitAsync();
+
                 var rows = metricsList.Select(m => new object[]
                 {
                     m.Timestamp,
