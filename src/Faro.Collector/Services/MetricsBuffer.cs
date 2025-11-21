@@ -51,30 +51,35 @@ public class MetricsBuffer: BackgroundService
             _batchSize);
 
         var batch = new List<MetricPoint>(_batchSize);
-        var timer = new PeriodicTimer(_flushInterval);
 
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var hasMore = true;
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                timeoutCts.CancelAfter(_flushInterval);
 
-                // Collect metrics until batch is full or timer expires
-                while (hasMore && batch.Count < _batchSize)
+                try
                 {
-                    hasMore = await _channel.Reader.WaitToReadAsync(stoppingToken);
-
-                    if (hasMore)
+                    // Collect metrics until batch is full or timeout
+                    while (batch.Count < _batchSize && !timeoutCts.Token.IsCancellationRequested)
                     {
-                        while (batch.Count < _batchSize && _channel.Reader.TryRead(out var metric))
+                        if (await _channel.Reader.WaitToReadAsync(timeoutCts.Token))
                         {
-                            batch.Add(metric);
+                            while (batch.Count < _batchSize && _channel.Reader.TryRead(out var metric))
+                            {
+                                batch.Add(metric);
+                            }
                         }
                     }
                 }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
+                {
+                    // Timeout expired, continue to flush
+                }
 
-                // Flush on timer or when batch is full
-                if (batch.Count > 0 && (batch.Count >= _batchSize || await timer.WaitForNextTickAsync(stoppingToken)))
+                // Flush if we have metrics
+                if (batch.Count > 0)
                 {
                     await FlushBatchAsync(batch, stoppingToken);
                     batch.Clear();
