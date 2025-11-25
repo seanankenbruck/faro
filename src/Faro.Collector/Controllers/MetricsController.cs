@@ -38,7 +38,7 @@ public class MetricsController: ControllerBase
         }
 
         await _buffer.AddMetricAsync(metric);
-        return Accepted();
+        return Accepted(new { received = 1 });
     }
 
     /// <summary>
