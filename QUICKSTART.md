@@ -21,11 +21,8 @@ docker-compose logs clickhouse
 # Connect to ClickHouse CLI (optional, for testing)
 docker exec -it faro-clickhouse clickhouse-client --user metrics_user --password metrics_pass_123 --database metrics
 
-# Terminal 1: Start ClickHouse
-docker-compose up -d
-
 # Terminal 2: Start Collector
-cd src/MetricsMonitoring.Collector
+cd src/Faro.Collector
 dotnet run
 
 # Terminal 3: Run Test App
@@ -33,7 +30,7 @@ cd src/TestApp
 dotnet run
 
 # Connect to ClickHouse
-docker exec -it metrics-clickhouse clickhouse-client --user metrics_user --password metrics_pass_123 --database metrics
+docker exec -it faro-clickhouse clickhouse-client --user metrics_user --password metrics_pass_123 --database metrics
 
 # Run queries
 ```
