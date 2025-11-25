@@ -43,8 +43,8 @@ public class MetricPointValidator: AbstractValidator<MetricPoint>
         return !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
-    private bool HaveValidTagCount(Dictionary<string, string> tags)
+    private bool HaveValidTagCount(Dictionary<string, string>? tags)
     {
-        return tags.Count <= 20;
+        return tags == null || tags.Count <= 20;
     }
 }

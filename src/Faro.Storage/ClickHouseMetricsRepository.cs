@@ -1,5 +1,3 @@
-using ClickHouse.Client.ADO;
-using ClickHouse.Client.Copy;
 using Faro.Shared.Models;
 using Faro.Storage.Configuration;
 using Microsoft.Extensions.Logging;
@@ -13,14 +11,17 @@ public class ClickHouseMetricsRepository: IMetricsRepository
 {
     private readonly ClickHouseOptions _options;
     private readonly ILogger<ClickHouseMetricsRepository> _logger;
+    private readonly IClickHouseConnectionFactory _connectionFactory;
     private readonly AsyncRetryPolicy _retryPolicy;
 
     public ClickHouseMetricsRepository(
         IOptions<ClickHouseOptions> options,
-        ILogger<ClickHouseMetricsRepository> logger)
+        ILogger<ClickHouseMetricsRepository> logger,
+        IClickHouseConnectionFactory connectionFactory)
     {
         _options = options.Value;
         _logger = logger;
+        _connectionFactory = connectionFactory;
 
         // configure retry policy with exponential backoff
         _retryPolicy = Policy
@@ -42,6 +43,13 @@ public class ClickHouseMetricsRepository: IMetricsRepository
 
     public async Task WriteBatchAsync(IEnumerable<MetricPoint> metrics, CancellationToken cancellationToken = default)
     {
+        // Check for null batch
+        if (metrics == null)
+        {
+            _logger.LogDebug("Null metrics batch provided.");
+            return;
+        }
+
         var metricsList = metrics.ToList();
         if (!metricsList.Any())
         {
@@ -53,32 +61,9 @@ public class ClickHouseMetricsRepository: IMetricsRepository
         {
             await _retryPolicy.ExecuteAsync(async () =>
             {
-                await using var connection = new ClickHouseConnection(_options.ConnectionString);
-                await connection.OpenAsync(cancellationToken);
-
-                using var bulkCopy = new ClickHouseBulkCopy(connection)
-                {
-                    DestinationTableName = "metrics",
-                    BatchSize = 10000,
-                    MaxDegreeOfParallelism = 4
-                };
-
-                await bulkCopy.InitAsync();
-
-                var rows = metricsList.Select(m => new object[]
-                {
-                    m.Timestamp,
-                    m.MetricName,
-                    m.Value,
-                    m.Tags,
-                    m.Host,
-                    m.Service,
-                    m.Environment
-                }).ToList();
-
-                await bulkCopy.WriteToServerAsync(rows, cancellationToken);
+                await _connectionFactory.WriteBatchAsync(metricsList, cancellationToken);
                 _logger.LogInformation(
-                    "Successfully wrote {Count} metrics to ClickHouse.", 
+                    "Successfully wrote {Count} metrics to ClickHouse.",
                     metricsList.Count
                 );
             });
@@ -101,14 +86,7 @@ public class ClickHouseMetricsRepository: IMetricsRepository
         {
             return await _retryPolicy.ExecuteAsync(async () =>
             {
-                await using var connection = new ClickHouseConnection(_options.ConnectionString);
-                await connection.OpenAsync(cancellationToken);
-
-                await using var command = connection.CreateCommand();
-                command.CommandText = "SELECT 1";
-                var result = await command.ExecuteScalarAsync(cancellationToken);
-
-                return result != null;
+                return await _connectionFactory.ExecuteHealthCheckAsync(cancellationToken);
             });
         }
         catch (Exception ex)
