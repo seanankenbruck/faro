@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS metrics (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (metric_name, host, service, timestamp)
-TTL timestamp + INTERVAL 90 DAY
+TTL timestamp + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192;
 
 -- Materialized view for 1-minute aggregations (pre-computed for fast queries)
@@ -25,7 +25,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metrics_1m
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(minute)
 ORDER BY (metric_name, host, service, minute)
-TTL minute + INTERVAL 180 DAY
+TTL minute + INTERVAL 30 DAY
 AS SELECT
     toStartOfMinute(timestamp) as minute,
     metric_name,
