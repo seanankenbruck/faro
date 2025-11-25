@@ -16,7 +16,10 @@ public static class ServiceCollectionExtensions
         // Configure ClickHouse options
         services.Configure<ClickHouseOptions>(
             configuration.GetSection(ClickHouseOptions.SectionName));
-        
+
+        // Register ClickHouse connection factory
+        services.AddSingleton<IClickHouseConnectionFactory, ClickHouseConnectionFactory>();
+
         // Register ClickHouse metrics repository
         services.AddSingleton<IMetricsRepository, ClickHouseMetricsRepository>();
 
