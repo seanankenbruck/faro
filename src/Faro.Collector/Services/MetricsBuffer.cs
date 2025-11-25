@@ -70,6 +70,12 @@ public class MetricsBuffer: BackgroundService
                             {
                                 batch.Add(metric);
                             }
+
+                            // If batch is full after reading, exit immediately
+                            if (batch.Count >= _batchSize)
+                            {
+                                break;
+                            }
                         }
                     }
                 }
@@ -81,9 +87,10 @@ public class MetricsBuffer: BackgroundService
                 // Flush if we have metrics
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(batch, stoppingToken);
+                    await FlushBatchAsync(batch.ToList(), stoppingToken);
                     batch.Clear();
                 }
+
             }
         }
         catch (OperationCanceledException)
@@ -95,7 +102,7 @@ public class MetricsBuffer: BackgroundService
             // Flush remaining metrics
             if (batch.Count > 0)
             {
-                await FlushBatchAsync(batch, CancellationToken.None);
+                await FlushBatchAsync(batch.ToList(), CancellationToken.None);
             }
         }
     }
