@@ -1,7 +1,6 @@
 using FluentValidation;
 using Faro.Collector.Services;
 using Faro.Shared.Validation;
-using Faro.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +12,8 @@ builder.Services.AddSwaggerGen();
 // Add validation
 builder.Services.AddValidatorsFromAssemblyContaining<MetricPointValidator>();
 
-// Add storage layer
-builder.Services.AddMetricsStorage(builder.Configuration);
+// Add Kafka producer
+builder.Services.AddSingleton<IKafkaProducerService, KafkaProducerService>();
 
 // Add metrics buffer as hosted service
 builder.Services.AddHostedService<MetricsBuffer>();
