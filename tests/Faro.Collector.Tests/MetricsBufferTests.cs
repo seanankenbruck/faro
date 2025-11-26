@@ -9,13 +9,13 @@ namespace Faro.Collector.Tests;
 
 public class MetricsBufferTests
 {
-    private readonly Mock<IMetricsRepository> _mockRepository;
+    private readonly Mock<IKafkaProducerService> _kafkaProducer;
     private readonly Mock<ILogger<MetricsBuffer>> _mockLogger;
     private readonly IConfiguration _configuration;
 
     public MetricsBufferTests()
     {
-        _mockRepository = new Mock<IMetricsRepository>();
+        _kafkaProducer = new Mock<IKafkaProducerService>();
         _mockLogger = new Mock<ILogger<MetricsBuffer>>();
 
         var inMemorySettings = new Dictionary<string, string>
@@ -32,7 +32,7 @@ public class MetricsBufferTests
     [Fact]
     public async Task AddMetricAsync_AcceptsMetric()
     {
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         var metric = CreateValidMetric();
 
         await buffer.AddMetricAsync(metric);
@@ -44,10 +44,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task FlushesWhenBatchSizeReached()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(k => k.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Give the background task time to start waiting for metrics
@@ -62,8 +62,8 @@ public class MetricsBufferTests
         // Give time for async flush (increased to avoid race condition)
         await Task.Delay(200);
 
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 5), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            k => k.ProduceBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 5), It.IsAny<CancellationToken>()),
             Times.Once);
 
         await buffer.StopAsync(CancellationToken.None);
@@ -72,10 +72,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task FlushesOnInterval()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Add fewer metrics than batch size
@@ -85,8 +85,8 @@ public class MetricsBufferTests
         // Wait for flush interval to trigger
         await Task.Delay(1500);
 
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 2), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 2), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
 
         await buffer.StopAsync(CancellationToken.None);
@@ -95,10 +95,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task StopAsync_FlushesRemainingMetrics()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Add some metrics
@@ -109,18 +109,18 @@ public class MetricsBufferTests
         // Stop should flush remaining metrics
         await buffer.StopAsync(CancellationToken.None);
 
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 3), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 3), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
     public async Task MultipleBatches_ProcessedSequentially()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Add two batches worth of metrics
@@ -133,8 +133,8 @@ public class MetricsBufferTests
         await Task.Delay(1000);
 
         // Should have flushed at least twice (5 + 5 + 2)
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
             Times.AtLeast(2));
 
         await buffer.StopAsync(CancellationToken.None);
@@ -143,10 +143,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task ConcurrentMetrics_HandledSafely()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Add metrics concurrently
@@ -160,8 +160,8 @@ public class MetricsBufferTests
         await buffer.StopAsync(CancellationToken.None);
 
         // Verify all metrics were processed
-        var totalMetricsWritten = _mockRepository.Invocations
-            .Where(inv => inv.Method.Name == nameof(IMetricsRepository.WriteBatchAsync))
+        var totalMetricsWritten = _kafkaProducer.Invocations
+            .Where(inv => inv.Method.Name == nameof(IKafkaProducerService.ProduceBatchAsync))
             .Sum(inv => ((IEnumerable<MetricPoint>)inv.Arguments[0]).Count());
 
         Assert.Equal(20, totalMetricsWritten);
@@ -170,10 +170,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task RepositoryException_LogsError()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database connection failed"));
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Give the background task time to start waiting for metrics
@@ -199,17 +199,17 @@ public class MetricsBufferTests
     [Fact]
     public async Task EmptyBatch_NotSentToRepository()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         // Don't add any metrics, just wait for interval
         await Task.Delay(1500);
 
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
         await buffer.StopAsync(CancellationToken.None);
@@ -218,10 +218,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task LogsFlushPerformanceMetrics()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         await buffer.StartAsync(CancellationToken.None);
 
         for (int i = 0; i < 5; i++)
@@ -235,7 +235,7 @@ public class MetricsBufferTests
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Flushed")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Published")),
                 null,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
@@ -255,10 +255,10 @@ public class MetricsBufferTests
             .AddInMemoryCollection(customSettings!)
             .Build();
 
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, customConfig);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, customConfig);
         await buffer.StartAsync(CancellationToken.None);
 
         // Add 10 metrics to trigger batch
@@ -269,8 +269,8 @@ public class MetricsBufferTests
 
         await Task.Delay(500);
 
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 10), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.Is<IEnumerable<MetricPoint>>(m => m.Count() == 10), It.IsAny<CancellationToken>()),
             Times.Once);
 
         await buffer.StopAsync(CancellationToken.None);
@@ -279,10 +279,10 @@ public class MetricsBufferTests
     [Fact]
     public async Task CancellationToken_StopsProcessing()
     {
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var buffer = new MetricsBuffer(_mockRepository.Object, _mockLogger.Object, _configuration);
+        var buffer = new MetricsBuffer(_kafkaProducer.Object, _mockLogger.Object, _configuration);
         var cts = new CancellationTokenSource();
 
         await buffer.StartAsync(cts.Token);
@@ -292,8 +292,8 @@ public class MetricsBufferTests
         await buffer.StopAsync(CancellationToken.None);
 
         // Should have flushed remaining metrics before stopping
-        _mockRepository.Verify(
-            r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
+        _kafkaProducer.Verify(
+            r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
 
