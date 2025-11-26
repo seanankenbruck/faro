@@ -1,26 +1,25 @@
 using System.Threading.Channels;
 using Faro.Shared.Models;
-using Faro.Storage;
 
 namespace Faro.Collector.Services;
 
 /// <summary>
-/// Buffers incoming metrics and flushes them in batches
+/// Buffers incoming metrics and publishes them to Kafka in batches
 /// </summary>
 public class MetricsBuffer: BackgroundService
 {
     private readonly Channel<MetricPoint> _channel;
-    private readonly IMetricsRepository _repository;
+    private readonly IKafkaProducerService _kafkaProducer;
     private readonly ILogger<MetricsBuffer> _logger;
     private readonly TimeSpan _flushInterval;
     private readonly int _batchSize;
 
     public MetricsBuffer(
-        IMetricsRepository repository,
+        IKafkaProducerService kafkaProducer,
         ILogger<MetricsBuffer> logger,
         IConfiguration configuration)
     {
-        _repository = repository;
+        _kafkaProducer = kafkaProducer;
         _logger = logger;
 
         // Unbound channel for high throughput
@@ -112,17 +111,17 @@ public class MetricsBuffer: BackgroundService
         try
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            await _repository.WriteBatchAsync(batch, cancellationToken);
+            await _kafkaProducer.ProduceBatchAsync(batch, cancellationToken);
             stopwatch.Stop();
 
             _logger.LogInformation(
-                "Flushed {Count} metrics to storage in {ElapsedMs}ms",
+                "Published {Count} metrics to Kafka in {ElapsedMs}ms",
                 batch.Count,
                 stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to flush {Count} metrics", batch.Count);
+            _logger.LogError(ex, "Failed to publish {Count} metrics to Kafka", batch.Count);
             // In production implement a dead-letter queue here
         }
     }
