@@ -14,7 +14,7 @@ namespace Faro.Collector.Tests;
 
 public class MetricsControllerTests
 {
-    private readonly Mock<IMetricsRepository> _mockRepository;
+    private readonly Mock<IKafkaProducerService> _kafkaProducer;
     private readonly MetricsBuffer _buffer;
     private readonly Mock<IValidator<MetricPoint>> _mockValidator;
     private readonly Mock<ILogger<MetricsController>> _mockControllerLogger;
@@ -23,7 +23,7 @@ public class MetricsControllerTests
 
     public MetricsControllerTests()
     {
-        _mockRepository = new Mock<IMetricsRepository>();
+        _kafkaProducer = new Mock<IKafkaProducerService>();
         _mockBufferLogger = new Mock<ILogger<MetricsBuffer>>();
         _mockValidator = new Mock<IValidator<MetricPoint>>();
         _mockControllerLogger = new Mock<ILogger<MetricsController>>();
@@ -36,7 +36,7 @@ public class MetricsControllerTests
             }!)
             .Build();
 
-        _buffer = new MetricsBuffer(_mockRepository.Object, _mockBufferLogger.Object, config);
+        _buffer = new MetricsBuffer(_kafkaProducer.Object, _mockBufferLogger.Object, config);
         _controller = new MetricsController(_buffer, _mockValidator.Object, _mockControllerLogger.Object);
     }
 
@@ -46,7 +46,7 @@ public class MetricsControllerTests
         var metric = CreateValidMetric();
         _mockValidator.Setup(v => v.ValidateAsync(metric, default))
             .ReturnsAsync(new ValidationResult());
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _controller.PostSingle(metric);
@@ -108,7 +108,7 @@ public class MetricsControllerTests
 
         _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<MetricPoint>(), default))
             .ReturnsAsync(new ValidationResult());
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _controller.PostBatch(batch);
@@ -179,7 +179,7 @@ public class MetricsControllerTests
 
         _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<MetricPoint>(), default))
             .ReturnsAsync(new ValidationResult());
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         await _controller.PostBatch(batch);
@@ -204,7 +204,7 @@ public class MetricsControllerTests
 
         _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<MetricPoint>(), default))
             .ReturnsAsync(new ValidationResult());
-        _mockRepository.Setup(r => r.WriteBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
+        _kafkaProducer.Setup(r => r.ProduceBatchAsync(It.IsAny<IEnumerable<MetricPoint>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var result = await _controller.PostBatch(batch);
