@@ -29,7 +29,8 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
             MaxInFlight = 5,
             CompressionType = CompressionType.Snappy,
             LingerMs = 100,
-            BatchSize = 16384
+            BatchSize = 16384,
+            Partitioner = Partitioner.Murmur2
         };
 
         _producer = new ProducerBuilder<string, string>(config)
@@ -49,7 +50,11 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
             Timestamp = new Timestamp(metric.Timestamp)
         };
 
-        await _producer.ProduceAsync(_topic, message, cancellationToken);
+        var deliveryResult = await _producer.ProduceAsync(_topic, message, cancellationToken);
+
+        // Log which partition message assigned to for debugging
+        _logger.LogDebug("Produced metric {MetricName} to partition {Partition}",
+            metric.MetricName, deliveryResult.Partition.Value);
     }
 
     public async Task ProduceBatchAsync(IEnumerable<MetricPoint> metrics, CancellationToken cancellationToken = default)
