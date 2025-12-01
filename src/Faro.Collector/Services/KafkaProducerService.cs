@@ -37,7 +37,10 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
             .SetErrorHandler((_, e) => _logger.LogError("Kafka error: {Reason}", e.Reason))
             .Build();
 
-        _logger.LogInformation("Kafka producer initialized for topic: {Topic}", _topic);
+        _logger.LogInformation(
+            "Kafka producer initialized for topic: {Topic} with partitioner: {Partitioner}", 
+            _topic,
+            config.Partitioner);
     }
 
     public async Task ProduceAsync(MetricPoint metric, CancellationToken cancellationToken = default)
