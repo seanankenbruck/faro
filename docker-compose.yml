@@ -51,8 +51,8 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ./docker/kafka/init:/create-topics.sh
-    entrypoint: ["/bin/sh", "/create-topics.sh"]
+      - ./docker/kafka/init:/scripts
+    entrypoint: ["/bin/sh", "/scripts/create-topics.sh"]
     restart: "no"
 
   clickhouse:
