@@ -86,7 +86,7 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "clickhouse-faro"
           },
-          "format": "time_series",
+          "format": 1,
           "rawSql": "SELECT minute as time, metric_name, countMerge(count) as value FROM metrics_1m WHERE minute >= now() - INTERVAL 1 HOUR GROUP BY minute, metric_name ORDER BY minute",
           "refId": "A"
         }
@@ -163,7 +163,7 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "clickhouse-faro"
           },
-          "format": "time_series",
+          "format": 1,
           "rawSql": "SELECT minute as time, metric_name, avgMerge(avg_value) as value FROM metrics_1m WHERE minute >= now() - INTERVAL 1 HOUR GROUP BY minute, metric_name ORDER BY minute",
           "refId": "A"
         }
@@ -220,7 +220,7 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "clickhouse-faro"
           },
-          "format": "table",
+          "format": 2,
           "rawSql": "SELECT metric_name, count() as total_points FROM metrics WHERE timestamp >= now() - INTERVAL 1 HOUR GROUP BY metric_name ORDER BY total_points DESC",
           "refId": "A"
         }
