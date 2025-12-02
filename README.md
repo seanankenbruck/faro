@@ -17,8 +17,9 @@ This solution will demonstrate the ability to build a metrics monitoring and ale
 Solution Structure:
 ├── Faro.sln
 ├── src/
-│   ├── Faro.Collector/          # Metrics ingestion service
+│   ├── Faro.Collector/           # Metrics ingestion service and kafka producer
 │   ├── Faro.Storage/             # Time series DB abstraction
+│   ├── Faro.Consumer/            # Kafka consumer service
 │   ├── Faro.QueryService/        # Query API
 │   ├── Faro.AlertingEngine/      # Alert evaluation
 │   ├── Faro.Notifications/       # Email, SMS, PagerDuty

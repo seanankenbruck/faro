@@ -20,7 +20,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     healthcheck:
@@ -42,6 +42,18 @@ services:
       KAFKA_CLUSTERS_0_NAME: faro-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       DYNAMIC_CONFIG_ENABLED: 'true'
+
+  # this service runs the initialization scripts in folder ../docker/kafka/init
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    container_name: faro-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./docker/kafka/init:/scripts
+    entrypoint: ["/bin/sh", "/scripts/create-topics.sh"]
+    restart: "no"
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest

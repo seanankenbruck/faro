@@ -33,11 +33,26 @@ public class MetricsConsumerService : BackgroundService
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false,
             MaxPollIntervalMs = 300000,
-            SessionTimeoutMs = 45000
+            SessionTimeoutMs = 45000,
+            PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
         };
 
         _consumer = new ConsumerBuilder<string, string>(config)
             .SetErrorHandler((_, e) => _logger.LogError("Kafka consumer error: {Reason}", e.Reason))
+            .SetPartitionsAssignedHandler((consumer, partitions) =>
+            {
+                // log when partitions are assigned
+                _logger.LogInformation("Assigned {Count} partitions: [{Partitions}]",
+                    partitions.Count,
+                    string.Join(", ", partitions.Select(p => p.Partition.Value)));
+            })
+            .SetPartitionsRevokedHandler((consumer, partitions) =>
+            {
+                // log when partitions are revoked (rebalancing)
+                _logger.LogInformation("Revoked {Count} partitions: [{Partitions}]",
+                    partitions.Count,
+                    string.Join(", ", partitions.Select(p => p.Partition.Value)));
+            })
             .Build();
 
         _logger.LogInformation(

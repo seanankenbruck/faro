@@ -29,14 +29,18 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
             MaxInFlight = 5,
             CompressionType = CompressionType.Snappy,
             LingerMs = 100,
-            BatchSize = 16384
+            BatchSize = 16384,
+            Partitioner = Partitioner.Murmur2
         };
 
         _producer = new ProducerBuilder<string, string>(config)
             .SetErrorHandler((_, e) => _logger.LogError("Kafka error: {Reason}", e.Reason))
             .Build();
 
-        _logger.LogInformation("Kafka producer initialized for topic: {Topic}", _topic);
+        _logger.LogInformation(
+            "Kafka producer initialized for topic: {Topic} with partitioner: {Partitioner}", 
+            _topic,
+            config.Partitioner);
     }
 
     public async Task ProduceAsync(MetricPoint metric, CancellationToken cancellationToken = default)
@@ -49,7 +53,11 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
             Timestamp = new Timestamp(metric.Timestamp)
         };
 
-        await _producer.ProduceAsync(_topic, message, cancellationToken);
+        var deliveryResult = await _producer.ProduceAsync(_topic, message, cancellationToken);
+
+        // Log which partition message assigned to for debugging
+        _logger.LogDebug("Produced metric {MetricName} to partition {Partition}",
+            metric.MetricName, deliveryResult.Partition.Value);
     }
 
     public async Task ProduceBatchAsync(IEnumerable<MetricPoint> metrics, CancellationToken cancellationToken = default)
