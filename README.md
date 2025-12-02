@@ -17,46 +17,89 @@ This solution will demonstrate the ability to build a metrics monitoring and ale
 Solution Structure:
 ├── Faro.sln
 ├── src/
-│   ├── Faro.Collector/           # Metrics ingestion service and kafka producer
-│   ├── Faro.Storage/             # Time series DB abstraction
-│   ├── Faro.Consumer/            # Kafka consumer service
-│   ├── Faro.QueryService/        # Query API
-│   ├── Faro.AlertingEngine/      # Alert evaluation
-│   ├── Faro.Notifications/       # Email, SMS, PagerDuty
+│   ├── Faro.Collector/           # Metrics ingestion service and Kafka producer
+│   ├── Faro.Storage/             # ClickHouse abstraction and data access
+│   ├── Faro.Consumer/            # Kafka consumer service (writes to ClickHouse)
+│   ├── Faro.AlertingEngine/      # Alert rule evaluation and trigger engine
+│   ├── Faro.Notifications/       # Email, SMS, PagerDuty integrations
 │   ├── Faro.Client/              # SDK for apps to emit metrics
 │   └── Faro.Shared/              # Common models, utilities
 ├── tests/
 │   ├── Unit/
 │   └── Integration/
-└── docker/                                     # Docker compose for local dev
+└── docker/                       # Docker compose for local dev (Kafka, ClickHouse, Grafana)
 ```
 
 ## System Architecture Overview
 
-Initial system architecture breakdown. 
+Complete end-to-end metrics monitoring and alerting architecture.
 
 ```
 ┌─────────────────┐
 │ Metrics Source  │ (Your applications)
 │  + Client SDK   │
 └────────┬────────┘
-         │ HTTP/gRPC Push
+         │ HTTP Push
          ▼
 ┌─────────────────────────┐
 │  Metrics Collector      │
 │  - Validation           │
-│  - Batching (10-30s)    │
-│  - Buffer management    │
+│  - Rate limiting        │
+│  - Kafka producer       │
 └────────┬────────────────┘
-         │ Bulk Insert
+         │ Publish to topic (partitioned by metric_name)
+         ▼
+    ┌────────┐
+    │ Kafka  │ (Buffering, reliability, decoupling)
+    └────┬───┘
+         │ Consume with consumer group
          ▼
 ┌─────────────────────────┐
-│    ClickHouse DB        │
-│  - metrics table        │
-│  - materialized views   │
-│  - retention policies   │
-└─────────────────────────┘
+│  Consumer Service       │
+│  - Batch aggregation    │
+│  - Bulk insert          │
+└────────┬────────────────┘
+         │ Bulk write
+         ▼
+┌─────────────────────────────────┐
+│      ClickHouse DB              │
+│  - metrics table (raw data)     │
+│  - metrics_1m (aggregated)      │
+│  - metrics_1h (aggregated)      │
+│  - TTL/retention policies       │
+└────────┬────────────────────────┘
+         │
+         │ Direct SQL queries
+         │
+    ┌────┴─────────────────────┐
+    │                          │
+    ▼                          ▼
+┌──────────┐          ┌───────────────────┐
+│ Grafana  │          │ Alerting Engine   │
+│          │          │  - Rule evaluation│
+│ Dashboards         │  - Threshold checks
+│ Queries  │          │  - Notifications  │
+└──────────┘          └────────┬──────────┘
+                               │
+                               ▼
+                      ┌─────────────────┐
+                      │  Notifications  │
+                      │  - Email        │
+                      │  - SMS          │
+                      │  - PagerDuty    │
+                      │  - Webhooks     │
+                      └─────────────────┘
 ```
+
+### Key Design Decisions
+
+1. **No Query Service**: Grafana and the Alerting Engine query ClickHouse directly using native SQL. ClickHouse's built-in caching and performance eliminates the need for an intermediate query layer.
+
+2. **Kafka for Decoupling**: Provides buffering, reliability, and allows independent scaling of ingestion and storage layers.
+
+3. **Materialized Views**: Pre-aggregated data at 1-minute and 1-hour granularity for fast dashboard queries and alerting.
+
+4. **Partitioning Strategy**: Kafka topics partitioned by `metric_name` to ensure ordered processing and parallelism.
 
 ## License
 
