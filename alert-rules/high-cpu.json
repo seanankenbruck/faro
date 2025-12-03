@@ -1,0 +1,18 @@
+{
+  "id": "high-cpu",
+  "name": "High CPU Usage",
+  "description": "Alert when CPU usage exceeds 80% for 5 minutes",
+  "query": "SELECT avgMerge(avg_value) as value FROM metrics_1m WHERE metric_name = 'cpu.usage' AND minute >= now() - INTERVAL 5 MINUTE",
+  "evaluationInterval": "00:01:00",
+  "condition": {
+    "operator": "GreaterThan",
+    "threshold": 80.0
+  },
+  "for": "00:05:00",
+  "notificationChannels": ["email", "pagerduty"],
+  "labels": {
+    "severity": "warning",
+    "team": "platform"
+  },
+  "enabled": true
+}
