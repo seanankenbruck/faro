@@ -102,10 +102,11 @@ public class AlertingEngineWorker : BackgroundService
 
     private async Task SendNotificationsAsync(AlertRule rule, AlertInstance instance)
     {
-        // TODO: Placeholder for notification logic
+        // TODO: Placeholder logic for notification flow
         _logger.LogInformation(
             "Would send notification for rule {RuleId}: {State}",
             rule.Id, instance.State);
+        await Task.CompletedTask;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
