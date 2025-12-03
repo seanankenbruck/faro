@@ -1,7 +1,9 @@
 using Faro.AlertingEngine;
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddHostedService<Worker>();
+
+// Add Alerting Engine service
+builder.Services.AddHostedService<AlertingEngineWorker>();
 
 var host = builder.Build();
 host.Run();
