@@ -12,4 +12,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Faro.Notifications\Faro.Notifications.csproj" />
+  </ItemGroup>
 </Project>
