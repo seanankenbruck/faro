@@ -1,4 +1,5 @@
 using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using MimeKit;
@@ -34,7 +35,12 @@ public class EmailNotificationChannel : INotificationChannel
             emailMessage.Body = new TextPart("plain") { Text = message.Body };
 
             using var client = new SmtpClient();
-            await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort, _config.UseSsl,
+            // Use StartTls for port 587, SslOnConnect for port 465
+            var secureSocketOptions = _config.SmtpPort == 465
+                ? SecureSocketOptions.SslOnConnect
+                : SecureSocketOptions.StartTls;
+
+            await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort, secureSocketOptions,
             cancellationToken);
 
             if (!string.IsNullOrEmpty(_config.Username))
