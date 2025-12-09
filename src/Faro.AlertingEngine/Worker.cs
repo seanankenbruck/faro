@@ -1,5 +1,6 @@
 using Faro.AlertingEngine.Models;
 using Faro.AlertingEngine.Services;
+using Faro.Notifications;
 
 namespace Faro.AlertingEngine;
 
@@ -9,18 +10,21 @@ public class AlertingEngineWorker : BackgroundService
     private readonly IAlertEvaluator _evaluator;
     private readonly IAlertRuleStore _ruleStore;
     private readonly IAlertStateManager _stateManager;
+    private readonly IEnumerable<INotificationChannel> _notificationChannels;
     private readonly Dictionary<string, Timer> _ruleTimers = [];
 
     public AlertingEngineWorker(
         ILogger<AlertingEngineWorker> logger,
         IAlertEvaluator evaluator,
         IAlertRuleStore ruleStore,
-        IAlertStateManager stateManager)
+        IAlertStateManager stateManager,
+        IEnumerable<INotificationChannel> notificationChannels)
     {
         _logger = logger;
         _evaluator = evaluator;
         _ruleStore = ruleStore;
         _stateManager = stateManager;
+        _notificationChannels = notificationChannels;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -102,11 +106,65 @@ public class AlertingEngineWorker : BackgroundService
 
     private async Task SendNotificationsAsync(AlertRule rule, AlertInstance instance)
     {
-        // TODO: Placeholder logic for notification flow
-        _logger.LogInformation(
-            "Would send notification for rule {RuleId}: {State}",
-            rule.Id, instance.State);
-        await Task.CompletedTask;
+        var message = new NotificationMessage
+        {
+            Title = $"{rule.Name} - {instance.State}",
+            Body = BuildNotificationBody(rule, instance),
+            Severity = DetermineSeverity(rule.Labels),
+            Metadata = new Dictionary<string, string>
+            {
+                ["rule_id"] = rule.Id,
+                ["state"] = instance.State.ToString(),
+                ["value"] = instance.CurrentValue?.ToString() ?? "N/A"
+            }
+        };
+
+        foreach (var channelName in rule.NotificationChannels)
+        {
+            var channel = _notificationChannels.FirstOrDefault(c => c.Name == channelName);
+            if (channel != null)
+            {
+                try
+                {
+                    await channel.SendAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send notification via {Channel}", channelName);
+                }
+            }
+        }
+
+        instance.LastNotifiedAt = DateTime.UtcNow;
+    }
+
+    private string BuildNotificationBody(AlertRule rule, AlertInstance instance)
+    {
+        return $@"
+        Alert: {rule.Name}
+        Description: {rule.Description}
+        State: {instance.State}
+        Current Value: {instance.CurrentValue}
+        Threshold: {rule.Condition.Operator} {rule.Condition.Threshold}
+        First Detected: {instance.FirstFiredAt}
+        Last Evaluated: {instance.LastEvaluatedAt}
+        ";
+    }
+
+    private static NotificationSeverity DetermineSeverity(Dictionary<string, string> labels)
+    {
+        if (labels.TryGetValue("severity", out var severity))
+        {
+            return severity.ToLowerInvariant() switch
+            {
+                "critical" => NotificationSeverity.Critical,
+                "warning" => NotificationSeverity.Warning,
+                "info" => NotificationSeverity.Info,
+                _ => NotificationSeverity.Warning
+            };
+        }
+
+        return NotificationSeverity.Warning;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
