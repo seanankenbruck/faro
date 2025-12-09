@@ -66,6 +66,10 @@ docker-compose.override.yml
 .env.*.local
 *.local.yml
 
+# Development settings with secrets
+appsettings.Development.json
+appsettings.*.local.json
+
 # OS files
 .DS_Store
 Thumbs.db
