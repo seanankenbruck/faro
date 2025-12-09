@@ -34,8 +34,12 @@ public class AlertingEngineWorker : BackgroundService
         // Load rules and schedule evaluations
         var rules = await _ruleStore.GetAllRulesAsync();
 
+        _logger.LogInformation("Loaded {Count} alert rules", rules.Count);
+
         foreach (var rule in rules.Where(r => r.Enabled))
         {
+            _logger.LogInformation("Loading rule: Id={Id}, Name={Name}, Query={Query}, Enabled={Enabled}",
+                rule.Id, rule.Name, rule.Query, rule.Enabled);
             ScheduleRule(rule, stoppingToken);
         }
 
@@ -64,6 +68,9 @@ public class AlertingEngineWorker : BackgroundService
             var instance = await _stateManager.GetInstanceAsync(rule.Id);
             var result = await _evaluator.EvaluateRuleAsync(rule, instance);
 
+            // Capture previous state before updating
+            var previousState = instance.State;
+
             // Update instance state
             instance.CurrentValue = result.Value;
             instance.State = result.NewState;
@@ -85,10 +92,16 @@ public class AlertingEngineWorker : BackgroundService
             _logger.LogInformation(
                 "Rule {RuleId}: Value={Value}, State={State}",
                 rule.Id, result.Value, result.NewState);
-            
+
             // Send notifications if state changed to FIRING or RESOLVED
-            if (ShouldNotify(instance, result.NewState))
+            var shouldNotify = ShouldNotify(previousState, result.NewState);
+            _logger.LogInformation(
+                "Rule {RuleId}: ShouldNotify={ShouldNotify}, PreviousState={PreviousState}, NewState={NewState}",
+                rule.Id, shouldNotify, previousState, result.NewState);
+
+            if (shouldNotify)
             {
+                _logger.LogInformation("Sending notifications for rule {RuleId}", rule.Id);
                 await SendNotificationsAsync(rule, instance);
             }
         }
@@ -98,14 +111,23 @@ public class AlertingEngineWorker : BackgroundService
         }
     }
 
-    private bool ShouldNotify(AlertInstance instance, AlertState newState)
+    private bool ShouldNotify(AlertState previousState, AlertState newState)
     {
-        // Notify on state transitions to FIRING or RESOLVED
-        return newState == AlertState.Firing || newState == AlertState.Resolved;
+        // Notify only on state transitions to FIRING or RESOLVED
+        return previousState != newState &&
+               (newState == AlertState.Firing || newState == AlertState.Resolved);
     }
 
     private async Task SendNotificationsAsync(AlertRule rule, AlertInstance instance)
     {
+        _logger.LogInformation(
+            "SendNotificationsAsync called for rule {RuleId}, channels: {Channels}",
+            rule.Id, string.Join(", ", rule.NotificationChannels));
+
+        _logger.LogInformation(
+            "Available notification channels: {AvailableChannels}",
+            string.Join(", ", _notificationChannels.Select(c => c.Name)));
+
         var message = new NotificationMessage
         {
             Title = $"{rule.Name} - {instance.State}",
@@ -126,12 +148,18 @@ public class AlertingEngineWorker : BackgroundService
             {
                 try
                 {
+                    _logger.LogInformation("Sending notification via {Channel}", channelName);
                     await channel.SendAsync(message);
+                    _logger.LogInformation("Successfully sent notification via {Channel}", channelName);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to send notification via {Channel}", channelName);
                 }
+            }
+            else
+            {
+                _logger.LogWarning("Notification channel {ChannelName} not found", channelName);
             }
         }
 
