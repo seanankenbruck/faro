@@ -32,12 +32,18 @@ public class FileBasedAlertRuleStore: IAlertRuleStore
         var rules = new List<AlertRule>();
         var files = Directory.GetFiles(_rulesDirectory, "*.json");
 
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+
         foreach (var file in files)
         {
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var rule = JsonSerializer.Deserialize<AlertRule>(json);
+                var rule = JsonSerializer.Deserialize<AlertRule>(json, options);
                 if (rule != null)
                 {
                     rules.Add(rule);
@@ -60,8 +66,14 @@ public class FileBasedAlertRuleStore: IAlertRuleStore
             return null;
         }
 
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+
         var json = await File.ReadAllTextAsync(filePath);
-        return JsonSerializer.Deserialize<AlertRule>(json);
+        return JsonSerializer.Deserialize<AlertRule>(json, options);
     }
 
     public async Task SaveRuleAsync(AlertRule rule)
