@@ -1,0 +1,18 @@
+{
+  "id": "low-memory",
+  "name": "Low Available Memory",
+  "description": "Alert when available memory drops below 20%",
+  "query": "SELECT avgMerge(avg_value) as value FROM metrics_1m WHERE metric_name = 'memory.available_percent' AND minute >= now() - INTERVAL 5 MINUTE",
+  "evaluationInterval": "00:01:00",
+  "condition": {
+    "operator": "LessThan",
+    "threshold": 20.0
+  },
+  "for": "00:05:00",
+  "notificationChannels": ["email", "webhook"],
+  "labels": {
+    "severity": "critical",
+    "team": "platform"
+  },
+  "enabled": true
+}

@@ -1,0 +1,19 @@
+{
+  "id": "high-cpu",
+  "name": "Test High CPU Usage",
+  "description": "Test alert with short intervals",
+  "query": "SELECT avgMerge(avg_value) as value FROM metrics_1m WHERE metric_name = 'cpu.usage' AND minute >= now() - INTERVAL 2 MINUTE",
+  "evaluationInterval": "00:00:30",
+  "condition": {
+    "operator": "GreaterThan",
+    "threshold": 80.0
+  },
+  "for": "00:01:00",
+  "notificationChannels": ["email", "webhook"],
+  "labels": {
+    "severity": "warning",
+    "team": "platform",
+    "test": "true"
+  },
+  "enabled": true
+}
