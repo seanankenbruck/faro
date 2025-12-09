@@ -1,0 +1,21 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  },
+  "Notifications": {
+    "Channels": {
+      "email": {
+        "Username": "your-email@gmail.com",
+        "Password": "your-app-password",
+        "FromAddress": "your-email@gmail.com",
+        "ToAddresses": ["recipient1@example.com", "recipient2@example.com"]
+      },
+      "webhook": {
+        "Url": "https://your-webhook-endpoint.com/path"
+      }
+    }
+  }
+}

@@ -66,7 +66,7 @@ public class AlertRuleStoreTests : IDisposable
 
         if (Directory.Exists("./alert-rules"))
         {
-            Directory.Delete("./alert-rules");
+            Directory.Delete("./alert-rules", recursive: true);
         }
     }
 

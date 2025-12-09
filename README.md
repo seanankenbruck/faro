@@ -1,5 +1,7 @@
 # Faro
 
+[![codecov](https://codecov.io/gh/seanankenbruck/faro/branch/main/graph/badge.svg)](https://codecov.io/gh/seanankenbruck/faro)
+
 A lightweight, self-hosted metrics monitoring and alerting system built with .NET and ClickHouse inspired by a system design problem on [ByteByteGo](https://bytebytego.com/).
 
 ## Overview
