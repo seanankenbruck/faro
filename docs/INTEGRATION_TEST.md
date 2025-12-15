@@ -806,30 +806,6 @@ docker-compose down -v  # Warning: removes all data
 rm alert-rules/test-*.json
 ```
 
-## Next Steps
-
-After successful integration testing:
-
-1. **Performance Tuning**
-   - Adjust Kafka batch sizes and flush intervals
-   - Tune ClickHouse table settings for your workload
-   - Optimize alert rule queries
-
-2. **Production Configuration**
-   - Set up production notification channels
-   - Define production alert rules with appropriate thresholds
-   - Configure alert routing based on severity/team
-
-3. **Monitoring**
-   - Set up Grafana dashboards for Faro metrics
-   - Monitor Faro service health (API latency, Kafka lag, etc.)
-   - Create alerts for Faro system issues
-
-4. **Integration**
-   - Integrate Faro client SDK into your applications
-   - Set up centralized alert rule management
-   - Document metric naming conventions and tag standards
-
 ## Appendix: Quick Commands Reference
 
 ### Send Single Metric
