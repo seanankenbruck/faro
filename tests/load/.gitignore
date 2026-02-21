@@ -1,0 +1,11 @@
+# Load test results
+results/
+*.json
+*.log
+
+# k6 cloud results
+k6-cloud-*.json
+
+# Temporary files
+*.tmp
+.DS_Store
