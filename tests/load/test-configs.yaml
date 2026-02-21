@@ -1,0 +1,240 @@
+# Faro Load Test Configurations
+#
+# This file documents recommended configurations for different
+# deployment environments and testing scenarios.
+
+# Local Development (laptop/workstation)
+local_dev:
+  description: "Testing on a local machine with Docker Desktop"
+  recommended_profile: "smoke"
+  max_profile: "light"
+  settings:
+    BASE_URL: "http://localhost:5000"
+    BATCH_SIZE: 100
+    DELAY_MS: 0.5
+  docker_resources:
+    collector_memory: "512M"
+    collector_cpus: "1"
+    consumer_memory: "512M"
+    consumer_cpus: "1"
+    clickhouse_memory: "2G"
+    clickhouse_cpus: "2"
+    kafka_memory: "1G"
+    kafka_cpus: "1"
+  notes:
+    - "Use smoke or light tests only"
+    - "Medium+ tests may overwhelm local system"
+    - "Monitor Docker Desktop memory usage"
+
+# Staging Environment (cloud VM)
+staging:
+  description: "Testing on a staging server (4 CPU, 8GB RAM)"
+  recommended_profile: "medium"
+  max_profile: "heavy"
+  settings:
+    BASE_URL: "http://staging-collector:5000"
+    BATCH_SIZE: 200
+    DELAY_MS: 0.1
+  docker_resources:
+    collector_memory: "1G"
+    collector_cpus: "2"
+    consumer_memory: "1G"
+    consumer_cpus: "1"
+    clickhouse_memory: "4G"
+    clickhouse_cpus: "2"
+    kafka_memory: "2G"
+    kafka_cpus: "1"
+  notes:
+    - "Can handle medium and heavy profiles"
+    - "May need multiple k6 instances for heavy test"
+    - "Monitor disk I/O for ClickHouse"
+
+# Production Sizing (dedicated servers)
+production:
+  description: "Production-grade deployment (8+ CPU, 32GB RAM)"
+  recommended_profile: "heavy"
+  max_profile: "stress"
+  settings:
+    BASE_URL: "http://prod-collector:5000"
+    BATCH_SIZE: 500
+    DELAY_MS: 0.05
+  docker_resources:
+    collector_memory: "4G"
+    collector_cpus: "4"
+    consumer_memory: "2G"
+    consumer_cpus: "2"
+    clickhouse_memory: "16G"
+    clickhouse_cpus: "4"
+    kafka_memory: "4G"
+    kafka_cpus: "2"
+  notes:
+    - "Can handle all test profiles"
+    - "Use distributed k6 for stress tests"
+    - "Monitor network bandwidth"
+    - "Enable ClickHouse replication for production"
+
+# Distributed Load Generation (1M+ metrics/sec)
+distributed:
+  description: "Multiple k6 load generators for maximum throughput"
+  recommended_profile: "heavy"
+  max_profile: "stress"
+  settings:
+    BASE_URL: "http://load-balancer:5000"
+    BATCH_SIZE: 1000
+    DELAY_MS: 0.01
+    k6_instances: 5
+  architecture:
+    - "5+ k6 instances (separate VMs/containers)"
+    - "Load balancer in front of collectors"
+    - "Multiple collector instances (3-5)"
+    - "Kafka cluster (3+ brokers)"
+    - "ClickHouse cluster (3+ nodes with replication)"
+    - "Multiple consumer instances (3-5)"
+  notes:
+    - "Required for validating 1M+ metrics/sec claim"
+    - "Each k6 instance can generate ~200k metrics/sec"
+    - "Monitor network bandwidth carefully"
+    - "Use k6 cloud for easier distributed testing"
+
+# Test Scenario Configurations
+scenarios:
+
+  # Quick validation (always run first)
+  smoke_test:
+    profile: "smoke"
+    duration: "30s"
+    target_throughput: "1,000 metrics/sec"
+    expected_metrics: "~30,000"
+    validation:
+      - "All services start successfully"
+      - "Metrics reach ClickHouse"
+      - "No errors in logs"
+      - "P95 latency < 500ms"
+
+  # Sustained medium load
+  endurance_test:
+    profile: "medium"
+    duration: "15m"
+    target_throughput: "100,000 metrics/sec"
+    expected_metrics: "~90,000,000"
+    validation:
+      - "Failure rate < 5%"
+      - "P95 latency < 2s"
+      - "No memory leaks"
+      - "Consumer keeps up with Kafka"
+
+  # Find breaking point
+  capacity_test:
+    profile: "stress"
+    duration: "14m"
+    target_throughput: "400,000+ metrics/sec"
+    validation:
+      - "Identify max sustainable throughput"
+      - "Document when system starts degrading"
+      - "Measure recovery time after load"
+
+  # Realistic production simulation
+  production_simulation:
+    profile: "heavy"
+    duration: "1h"
+    target_throughput: "200,000 metrics/sec"
+    expected_metrics: "~720,000,000"
+    validation:
+      - "System remains stable for full hour"
+      - "Materialized views stay up-to-date"
+      - "Disk usage remains predictable"
+      - "No service restarts needed"
+
+# Performance Tuning Recommendations
+tuning:
+
+  # If you see high latency
+  high_latency:
+    symptoms:
+      - "P95 > 5s"
+      - "Increasing latency over time"
+    solutions:
+      - name: "Increase Collector flush frequency"
+        config: "MetricsCollector:FlushIntervalSeconds = 1"
+      - name: "Increase Kafka batch size"
+        config: "Kafka:ProducerConfig:BatchSize = 65536"
+      - name: "Add more collector instances"
+        method: "Scale horizontally"
+      - name: "Increase ClickHouse resources"
+        config: "More CPU/Memory for background merges"
+
+  # If you see high failure rate
+  high_failures:
+    symptoms:
+      - "Failure rate > 10%"
+      - "Connection timeouts"
+    solutions:
+      - name: "Reduce load"
+        method: "Increase DELAY_MS or reduce VUs"
+      - name: "Increase batch sizes"
+        config: "BATCH_SIZE=500"
+      - name: "Check Kafka lag"
+        command: "docker exec faro-kafka kafka-consumer-groups --describe"
+      - name: "Scale consumers"
+        method: "Add more consumer instances"
+
+  # If metrics don't reach ClickHouse
+  ingestion_issues:
+    symptoms:
+      - "k6 succeeds but ClickHouse count doesn't increase"
+    solutions:
+      - name: "Check consumer logs"
+        command: "docker-compose logs consumer"
+      - name: "Verify consumer is running"
+        command: "docker-compose ps consumer"
+      - name: "Check Kafka messages"
+        method: "Use Kafka UI at localhost:8080"
+      - name: "Verify ClickHouse is writable"
+        command: "curl 'http://localhost:8123/?query=INSERT+INTO+metrics+VALUES'"
+
+  # If you run out of resources
+  resource_exhaustion:
+    symptoms:
+      - "Out of memory errors"
+      - "High CPU usage (>90%)"
+      - "Disk full"
+    solutions:
+      - name: "Increase Docker resources"
+        method: "Docker Desktop → Resources → Memory/CPU"
+      - name: "Enable ClickHouse TTL"
+        config: "Verify TTL is active in schema"
+      - name: "Reduce test intensity"
+        method: "Use lighter test profile"
+      - name: "Clean old data"
+        command: "curl 'http://localhost:8123/' --data 'OPTIMIZE TABLE metrics FINAL'"
+
+# Expected Performance Baselines
+# Update these with your actual results!
+baselines:
+  local_laptop:
+    hardware: "MacBook Pro M1, 16GB RAM"
+    smoke_test:
+      throughput: "TBD"
+      p95_latency: "TBD"
+      failure_rate: "TBD"
+    light_test:
+      throughput: "TBD"
+      p95_latency: "TBD"
+      failure_rate: "TBD"
+
+  cloud_vm_small:
+    hardware: "AWS t3.xlarge (4 vCPU, 16GB RAM)"
+    medium_test:
+      throughput: "TBD"
+      p95_latency: "TBD"
+      failure_rate: "TBD"
+
+  cloud_vm_large:
+    hardware: "AWS c5.4xlarge (16 vCPU, 32GB RAM)"
+    heavy_test:
+      throughput: "TBD"
+      p95_latency: "TBD"
+      failure_rate: "TBD"
+    stress_test:
+      max_throughput: "TBD"
+      breaking_point: "TBD"
